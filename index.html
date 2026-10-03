@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'self' https://api.github.com; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orca 진행 대시보드</title>
+<style>
+
+:root {
+ color-scheme:light;
+ --bg:#f4f6f9;--surface:#ffffff;--surface-sunken:#f7f8fa;--surface-hover:#f0f3f8;--text:#1a2332;--text-muted:#556072;--border:#d9dee6;--border-control:#838d9b;--track:#e4e8ee;--accent:#3451c6;--focus:#3451c6;
+ --progress-fg:#2a47b8;--progress-subtle:#eaeefc;--progress-solid:#3d5bd9;--success-fg:#16653f;--success-subtle:#e6f4ec;--success-solid:#2b8a57;--attention-fg:#875400;--attention-subtle:#fcf1d9;--attention-solid:#a36f00;--danger-fg:#b1202d;--danger-subtle:#fdeced;--danger-solid:#d0343f;--neutral-fg:#556072;--neutral-subtle:#eef0f4;--neutral-solid:#79838f;--flash:var(--progress-subtle);
+ --font-sans:system-ui,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;--font-mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+ --fs-xs:12px;--fs-sm:13px;--fs-md:14px;--fs-lg:16px;--fs-xl:20px;--fs-2xl:24px;--fs-kpi:28px;
+ --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-7:28px;--sp-8:32px;
+ --row-h:40px;--radius-sm:4px;--radius-md:8px;--radius-lg:12px;--radius-pill:999px;
+ --shadow-1:0 1px 2px rgb(16 24 40 / .06);--shadow-2:0 4px 12px rgb(16 24 40 / .10);--dur-fast:150ms;--dur-flash:1500ms;--bar-h:8px;--bar-h-mini:4px;--ic:16px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+ color-scheme:dark;--bg:#0f131a;--surface:#171c25;--surface-sunken:#12161e;--surface-hover:#1e2430;--text:#e6eaf2;--text-muted:#9aa5b8;--border:#2c3443;--border-control:#68738a;--track:#2a313d;--accent:#93a6ff;--focus:#93a6ff;
+ --progress-fg:#a3b4ff;--progress-subtle:#1f2a4d;--progress-solid:#6f8cff;--success-fg:#74d6a4;--success-subtle:#153428;--success-solid:#3fb67a;--attention-fg:#f0c25e;--attention-subtle:#3a2d10;--attention-solid:#d9a43a;--danger-fg:#ff9aa4;--danger-subtle:#45202a;--danger-solid:#f0606e;--neutral-fg:#a3adbf;--neutral-subtle:#252c38;--neutral-solid:#7d889b;--flash:var(--progress-subtle);
+ --shadow-1:none;--shadow-2:0 4px 16px rgb(0 0 0 / .45);
+} }
+:root[data-theme="dark"] {
+ color-scheme:dark;--bg:#0f131a;--surface:#171c25;--surface-sunken:#12161e;--surface-hover:#1e2430;--text:#e6eaf2;--text-muted:#9aa5b8;--border:#2c3443;--border-control:#68738a;--track:#2a313d;--accent:#93a6ff;--focus:#93a6ff;
+ --progress-fg:#a3b4ff;--progress-subtle:#1f2a4d;--progress-solid:#6f8cff;--success-fg:#74d6a4;--success-subtle:#153428;--success-solid:#3fb67a;--attention-fg:#f0c25e;--attention-subtle:#3a2d10;--attention-solid:#d9a43a;--danger-fg:#ff9aa4;--danger-subtle:#45202a;--danger-solid:#f0606e;--neutral-fg:#a3adbf;--neutral-subtle:#252c38;--neutral-solid:#7d889b;--flash:var(--progress-subtle);
+ --shadow-1:none;--shadow-2:0 4px 16px rgb(0 0 0 / .45);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:400 var(--fs-md)/20px var(--font-sans)}
+a{color:var(--accent);text-decoration:none}
+button,select{font:inherit;color:inherit;background:var(--surface);border:1px solid var(--border-control);border-radius:var(--radius-md);min-height:32px;cursor:pointer;transition:background var(--dur-fast)}
+button{padding:4px 8px}button:hover,select:hover{background:var(--surface-hover)}
+form.panel{display:grid;gap:12px;max-width:480px;margin:24px auto;padding:24px}#read-token{font:inherit;color:var(--text);background:var(--surface);border:1px solid var(--border-control);border-radius:var(--radius-md);min-height:40px;width:100%;padding:8px}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+[hidden]{display:none!important}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.skip{position:fixed;top:-80px;left:16px;z-index:10;background:var(--surface);padding:12px}.skip:focus{top:8px}
+header{position:sticky;top:0;z-index:5;height:56px;background:var(--surface);box-shadow:var(--shadow-2);border-bottom:1px solid var(--border)}
+.header-inner{max-width:1320px;margin:auto;padding:0 var(--sp-6);height:100%;display:flex;align-items:center;gap:var(--sp-3)}
+.brand{font-weight:700;color:var(--text);margin-right:auto;white-space:nowrap}
+.connection-wrap{display:flex;align-items:center;gap:6px;min-width:0}
+#connection{display:flex;align-items:center;gap:6px;min-width:0;max-width:40vw}
+#connection-label{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#connection-age{color:var(--text-muted);font-size:var(--fs-xs);white-space:nowrap;font-variant-numeric:tabular-nums}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--neutral-solid)}
+#theme{width:36px;height:36px;flex:none;font-size:20px}#band{padding:var(--sp-3) var(--sp-6);border-bottom:1px solid var(--border)}
+main{max-width:1320px;margin:auto;padding:var(--sp-6)}
+h1{font-size:var(--fs-xl);line-height:28px;margin:0}h2{font:600 var(--fs-lg)/22px var(--font-sans);margin:0}
+p{margin:8px 0;overflow-wrap:anywhere}.muted,.id{color:var(--text-muted)}.id{font:500 var(--fs-xs)/16px var(--font-mono);overflow-wrap:anywhere}
+.num,.time{font-variant-numeric:tabular-nums}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-1);padding:var(--sp-4);min-width:0}
+.section{margin-top:var(--sp-6);min-width:0}.toolbar,.meta-line{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);flex-wrap:wrap}.toolbar{margin:var(--sp-4) 0}
+.ic{width:var(--ic);height:var(--ic);fill:currentColor;flex:none;vertical-align:middle}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font:600 var(--fs-xs)/16px var(--font-sans);max-width:100%}
+[data-role="progress"]{color:var(--progress-fg);background:var(--progress-subtle)}
+[data-role="success"]{color:var(--success-fg);background:var(--success-subtle)}
+[data-role="attention"]{color:var(--attention-fg);background:var(--attention-subtle)}
+[data-role="danger"]{color:var(--danger-fg);background:var(--danger-subtle)}
+[data-role="neutral"]{color:var(--neutral-fg);background:var(--neutral-subtle)}
+.role-chip{font-family:var(--font-mono);font-size:var(--fs-xs)}
+.segments{display:flex;flex-wrap:wrap;gap:4px}.segments button{font-size:var(--fs-xs)}
+button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);color:var(--accent)}
+.kpis{display:grid;gap:var(--sp-2);grid-template-columns:repeat(6,minmax(0,1fr));margin-top:var(--sp-4)}
+.summary{grid-template-columns:repeat(5,minmax(0,1fr));margin-top:0}
+.kpi{text-align:left;min-width:0;padding:var(--sp-3);background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--border);border-radius:var(--radius-md)}
+button.kpi{border-color:var(--border-control)}.kpi-label{display:block;font:500 var(--fs-xs)/16px var(--font-sans);color:var(--text-muted)}
+.kpi-value{display:flex;align-items:center;gap:6px;font:700 var(--fs-kpi)/32px var(--font-sans);margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi[data-tone="danger"]{border-top-color:var(--danger-solid)}.kpi[data-tone="danger"] .kpi-value{color:var(--danger-fg)}
+.kpi[data-tone="attention"]{border-top-color:var(--attention-solid)}.kpi[data-tone="attention"] .kpi-value{color:var(--attention-fg)}
+.kpi[data-zero] .kpi-value{color:var(--text-muted)}
+.run-list{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);overflow:hidden}
+.run-row{position:relative;display:grid;grid-template-columns:4px 120px minmax(0,1fr) 64px 220px 168px 112px;gap:10px;align-items:center;padding:var(--sp-4) var(--sp-3) var(--sp-4) 0;color:var(--text);border-bottom:1px solid var(--border)}
+.run-row:last-child{border-bottom:0}.run-row:hover{background:var(--surface-hover)}
+.rail{align-self:stretch;border-radius:2px;background:var(--neutral-solid)}
+.run-title,.run-progress,.run-chips,.run-meta{min-width:0}.run-title h2,.ellipsis{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.run-title .id{margin-top:6px}
+.run-percent{font-weight:700;font-size:var(--fs-xl);line-height:28px}.run-percent small{display:block;font-size:var(--fs-xs);font-weight:400;color:var(--text-muted)}
+.run-chips{display:flex;flex-wrap:wrap;gap:4px}.run-meta{text-align:right;font-size:var(--fs-xs)}
+.seg-wrap{display:flex;align-items:center;gap:var(--sp-2);min-width:0}
+.seg{display:flex;gap:2px;background:var(--track);height:var(--bar-h);flex:1;min-width:0;border-radius:var(--radius-sm);overflow:hidden}
+.seg-part{flex-basis:0;min-width:3px}
+.seg-part[data-role="success"]{background:var(--success-solid)}.seg-part[data-role="danger"]{background:var(--danger-solid)}
+.seg-part[data-role="progress"]{background:var(--progress-solid)}.seg-part[data-role="attention"]{background:var(--attention-solid)}
+.seg-rest{flex-basis:0}.fraction{white-space:nowrap;font-size:var(--fs-xs)}
+.overview h1{font:700 var(--fs-2xl)/32px var(--font-sans);margin:8px 0}.overview .meta-line{font-size:var(--fs-xs);margin:12px 0}
+.overview-info{display:grid;grid-template-columns:160px minmax(0,1fr);gap:var(--sp-4);margin:var(--sp-4) 0}
+.big-percent{font:700 var(--fs-kpi)/32px var(--font-sans)}
+.tooltip-wrap{display:inline-block;position:relative;margin-left:6px}
+[role="tooltip"]{position:absolute;left:0;top:100%;width:min(280px,65vw);z-index:6;background:var(--surface);border:1px solid var(--border-control);padding:12px;border-radius:8px;box-shadow:var(--shadow-2);font:400 var(--fs-sm)/18px var(--font-sans)}
+.text-toggle{border:0;background:transparent;padding:0;text-align:left;width:100%;color:inherit;overflow-wrap:anywhere}
+.clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.worker-summary{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-4);margin-top:var(--sp-3)}
+.detail-layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:var(--sp-6);align-items:start}
+.table-wrap{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface)}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--border);vertical-align:top;overflow-wrap:anywhere}
+th{color:var(--text-muted);font:500 var(--fs-xs)/16px var(--font-sans);background:var(--surface-sunken)}
+th:nth-child(1){width:104px}th:nth-child(3),th:nth-child(4){width:132px}th:nth-child(5){width:160px}th:nth-child(6){width:72px}
+.task-row{min-height:var(--row-h);cursor:pointer}.task-row:hover{background:var(--surface-hover)}
+.task-toggle{display:flex;gap:4px;align-items:center;width:100%;text-align:left;border:0;background:transparent;padding:0;min-width:0}
+.task-title{min-width:0;flex:1}.task-sub{display:flex;flex-wrap:wrap;gap:4px;font-size:var(--fs-xs);margin-top:4px}
+.group button{border:0;width:100%;text-align:left;background:transparent;font-weight:600}
+.task-detail{background:var(--surface-sunken);padding:var(--sp-4);white-space:pre-wrap}
+.worker-cell,.progress-cell{font:400 var(--fs-xs)/18px var(--font-sans)}
+.worker-label{display:flex;align-items:center;gap:4px;color:var(--text-muted)}
+.heartbeat{margin-top:4px;font-size:var(--fs-xs);color:var(--text-muted)}.heartbeat.late{color:var(--attention-fg)}
+.mini{display:inline-block;width:40px;height:var(--bar-h-mini);background:var(--track);margin-right:4px;vertical-align:middle}.mini span{display:block;height:100%;background:var(--progress-solid)}
+.elapsed-cell{text-align:right;font-size:var(--fs-xs);white-space:normal;word-break:keep-all;max-width:72px}
+.axis{position:relative;height:20px;background:var(--surface-sunken)}.axis-bar{position:absolute;top:7px;height:6px;min-width:2px;background:var(--neutral-solid)}
+.axis-mark{position:absolute;top:5px;width:2px;height:10px;background:var(--attention-solid)}.axis-point{position:absolute;top:8px;width:4px;height:4px;border-radius:50%;background:var(--progress-solid)}
+.axis-label{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
+.timeline-section{position:sticky;top:72px;max-height:calc(100vh - 88px);overflow:auto;scroll-margin-top:80px}
+.timeline{list-style:none;padding:0;margin:0}.timeline li:not(.day){display:grid;grid-template-columns:5ch var(--ic) minmax(0,1fr);gap:var(--sp-2);padding:12px 0;border-bottom:1px solid var(--border)}
+.timeline .time{font:500 var(--fs-xs)/16px var(--font-mono);white-space:nowrap}
+.timeline .day{padding:12px 0 4px;font-weight:600;font-size:var(--fs-xs);color:var(--text-muted)}
+.event-meta{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:var(--fs-xs);color:var(--text-muted)}
+.event-summary{font:400 var(--fs-sm)/18px var(--font-sans)}.timeline-select{display:none;max-width:100%}.heartbeat-items{margin-top:8px;font-size:var(--fs-xs)}
+.empty{padding:var(--sp-6);color:var(--text-muted)}.empty button,.empty a{margin-top:12px;display:inline-block}
+.skeleton{height:12px;background:var(--track);margin:16px 0;border-radius:4px}.skeleton:nth-child(2){width:80%}.skeleton:nth-child(3){width:60%}
+[data-changed]{animation:flash var(--dur-flash) ease-out}.pulse{animation:pulse 2s infinite}
+@keyframes flash{from{background:var(--flash)}to{background:transparent}}@keyframes pulse{50%{opacity:.4}}
+@media(max-width:1199px){
+ .detail-layout{grid-template-columns:minmax(0,1fr)}.timeline-section{position:static;max-height:none;overflow:visible}
+ .run-row{grid-template-columns:4px 104px minmax(0,1fr) 56px 170px}.run-chips{grid-column:3/5}.run-meta{grid-column:5}th:nth-child(5){width:200px}
+}
+@media(max-width:899px){.axis-cell{display:none}.run-row{grid-template-columns:4px 100px minmax(0,1fr) 64px}.run-progress{grid-column:3}.run-chips{grid-column:2/4}.run-meta{grid-column:4}}
+@media(max-width:700px){
+ main{padding:var(--sp-4)}header{height:52px}.header-inner{padding:0 var(--sp-4);gap:8px}.brand{font-size:var(--fs-sm)}#connection-age{display:none}#connection{font-size:var(--fs-xs)}#band{padding:12px 16px}
+ .summary{grid-template-columns:repeat(2,minmax(0,1fr))}.summary .kpi:last-child{grid-column:1/-1}.kpis:not(.summary){grid-template-columns:repeat(3,minmax(0,1fr))}.kpi{padding:8px}
+ .run-row{grid-template-columns:4px minmax(0,1fr) 80px;gap:8px}.rail{grid-column:1;grid-row:1/5}.run-status{grid-column:2;grid-row:1}.run-meta{grid-column:3;grid-row:1}
+ .run-title{grid-column:2/4;grid-row:2}.run-title h2{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+ .run-percent{grid-column:3;grid-row:3;text-align:right}.run-progress{grid-column:2;grid-row:3}.run-chips{grid-column:2/4;grid-row:4}
+ .overview h1{font-size:var(--fs-xl);line-height:28px}.overview-info{grid-template-columns:minmax(0,1fr);gap:8px}.tooltip-wrap [role="tooltip"]{left:auto;right:0}
+ thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+ table,tbody{display:grid;grid-template-columns:minmax(0,1fr)}.group{display:grid;grid-template-columns:minmax(0,1fr)}.group th{width:auto}
+ .task-row{display:grid;grid-template-columns:88px minmax(0,1fr);grid-template-areas:"st title" "meta meta";border-bottom:1px solid var(--border)}
+ .task-row td{border:0;min-width:0}.status-cell{grid-area:st}.title-cell{grid-area:title}
+ .task-toggle{align-items:flex-start;flex-wrap:wrap}.task-title{flex-basis:auto;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.task-toggle.has-role .task-title{flex-basis:100%}
+ .worker-cell{grid-column:1;grid-row:2}.progress-cell{grid-column:2;grid-row:2;padding-right:70px}.elapsed-cell{grid-column:2;grid-row:2;justify-self:end;align-self:end}
+ .detail-row{display:grid;grid-template-columns:minmax(0,1fr)}.detail-row td{display:block}
+ .timeline-buttons{display:none}.timeline-select{display:block}.toolbar{align-items:flex-start}
+}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}[data-changed]{background:var(--flash)}}
+
+</style>
+</head>
+<body>
+<a class="skip" href="#app">본문으로 건너뛰기</a>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <symbol id="i-progress" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5"/></symbol>
+ <symbol id="i-pause" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor"/><path d="M5 4h2v8H5zm4 0h2v8H9z"/></symbol>
+ <symbol id="i-alert" viewBox="0 0 16 16"><path d="M8 1 15 14H1z" fill="none" stroke="currentColor"/><path d="M7 5h2v5H7zm0 6h2v2H7z"/></symbol>
+ <symbol id="i-check" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor"/><path d="m4 8 3 3 5-6" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+ <symbol id="i-x" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor"/><path d="m5 5 6 6m0-6-6 6" stroke="currentColor" stroke-width="1.5"/></symbol>
+ <symbol id="i-pending" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+ <symbol id="i-ready" viewBox="0 0 16 16"><circle cx="7" cy="8" r="5" fill="none" stroke="currentColor"/><path d="m9 4 6 4-6 4z"/></symbol>
+ <symbol id="i-square" viewBox="0 0 16 16"><path d="M3 3h10v10H3z"/></symbol>
+ <symbol id="i-diamond" viewBox="0 0 16 16"><path d="m8 1 7 7-7 7-7-7z" fill="none" stroke="currentColor"/></symbol>
+</svg>
+<template id="tpl-icon"><svg class="ic" aria-hidden="true" focusable="false"><use href=""></use></svg></template>
+<header><div class="header-inner"><a class="brand" href="#/">Orca 대시보드</a><div class="connection-wrap"><span id="connection" role="status" aria-live="polite"><span class="dot"></span><span id="connection-label">연결 중</span></span><span id="connection-age" aria-hidden="true"></span></div><button id="theme" type="button" aria-label="화면 테마: 시스템" title="화면 테마: 시스템">◐</button></div></header>
+<div id="band" hidden></div>
+<main id="app" tabindex="-1"><div class="panel empty"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>서버에서 첫 데이터를 받는 중입니다.</div></main>
+<div id="live-summary" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+<script id="pure">
+
+const POLL_STALE_MS = 15000, HEARTBEAT_STALE_MS = 600000, CONNECT_TIMEOUT_MS = 10000;
+const statusRoles = {active:'progress',waiting_user:'attention',blocked:'attention',done:'success',failed:'danger',idle:'neutral',dispatched:'progress',ready:'neutral',pending:'neutral',completed:'success'};
+function displayTitle(title) {
+ title=String(title ?? ''); const match=title.match(/^\[역할\]\s*([A-Z][A-Z0-9_]*)/);
+ if(!match) return {role:null,text:title};
+ let text=title.slice(match[0].length).replace(/^\s*\([^)]*\)/,'');
+ const dash=text.indexOf(' — '); text=dash<0 ? text.replace(/^[\s.,:;·-]+/,'') : text.slice(dash+3);
+ return {role:match[1],text:text.trim() || title};
+}
+function attentionOf(task,now) {
+ if(['completed','failed'].includes(task.status)) return {severity:'none',signals:[]};
+ const labels={failure:'직전 시도 실패',interruption:'중단됨',unverifiable:'Worker 확인 불가',stale:'응답 지연',root_completion:'완료 신호 수신',stale_heartbeat:'응답 지연'};
+ const signals=[...new Set(task.worker?.attention || [])].map(code=>({code,label:labels[code] || '기타 신호',severity:['failure','interruption'].includes(code) ? 'danger' : code === 'stale' || (code === 'unverifiable' && task.status === 'dispatched') ? 'attention' : 'info'}));
+ if(task.status === 'dispatched') {
+  const stamp=task.worker?.lastHeartbeatAt || task.createdAt;
+  if(Number.isFinite(Date.parse(stamp)) && now-Date.parse(stamp)>HEARTBEAT_STALE_MS) signals.push({code:'stale_heartbeat',label:'응답 지연',severity:'attention'});
+ }
+ const rank=['none','info','attention','danger'];
+ return {severity:rank[Math.max(0,...signals.map(s=>rank.indexOf(s.severity)))],signals};
+}
+function runFlags(run,now) {
+ const attention=run.tasks.filter(t=>['attention','danger'].includes(attentionOf(t,now).severity)).length, live=run.tasks.filter(t=>t.worker?.liveness === 'live').length, chips=[];
+ for(const [code,count,role,label] of [['failed',run.counts.failed,'danger','실패'],['blocked',run.counts.blocked,'attention','차단'],['attention',attention,'attention','주의'],['live',live,'neutral','실행 중']]) if(count) chips.push({code,count,role,label:label+' '+count});
+ const role=run.counts.failed || run.status === 'failed' ? 'danger' : run.counts.blocked || attention || ['waiting_user','blocked'].includes(run.status) ? 'attention' : statusRoles[run.status] || 'neutral';
+ return {role,chips,attention,live};
+}
+function groupTasks(tasks) {
+ const hasOpen=tasks.some(t=>t.status !== 'completed');
+ return ['failed','blocked','dispatched','ready','pending','completed'].map(status=>({status,collapsed:status === 'completed' && hasOpen,tasks:tasks.filter(t=>t.status === status).sort((a,b)=>Date.parse(a.createdAt)-Date.parse(b.createdAt))})).filter(g=>g.tasks.length);
+}
+function timelineView(events,timelineFilter='important') {
+ const selected=[...events].sort((a,b)=>Date.parse(b.ts)-Date.parse(a.ts)).filter(event=>timelineFilter === 'all' || (timelineFilter === 'important' ? ['warning','error'].includes(event.level) || !['heartbeat','status','task_created','task_completed'].includes(event.kind) : timelineFilter === 'warnings' ? ['warning','error'].includes(event.level) : event.source === timelineFilter));
+ const result=[];
+ for(const event of selected) {
+  const last=result.at(-1);
+  if(['all','orca'].includes(timelineFilter) && event.kind === 'heartbeat' && last?.kind === 'heartbeat' && new Date(last.ts).toDateString() === new Date(event.ts).toDateString()) {last.events.push(event);last.count++;}
+  else result.push({...event,count:1,events:[event]});
+ }
+ return result;
+}
+function parseSecretFragment(hash,name) {
+ if(!/^#(?:token|key)=/.test(hash)) return null;
+ const params=new URLSearchParams(hash.slice(1));return params.has(name) ? params.get(name).trim() : null;
+}
+function parseTokenFragment(hash) {return parseSecretFragment(hash,'token');}
+function parseKeyFragment(hash) {return parseSecretFragment(hash,'key');}
+function decodeSecret(value,length) {
+ if(typeof value !== 'string' || !/^[A-Za-z0-9_-]+$/.test(value)) throw new Error('암호 형식 오류');
+ const bytes=Uint8Array.from(atob(value.replaceAll('-','+').replaceAll('_','/')),c=>c.charCodeAt(0));
+ if(length && bytes.length !== length) throw new Error('암호 길이 오류');return bytes;
+}
+async function decryptSnapshot(data,secret) {
+ if(!secret || !data || data.v !== 1 || Object.keys(data).sort().join(',') !== 'ct,iv,v') throw new Error('암호 형식 오류');
+ const iv=decodeSecret(data.iv,12), ct=decodeSecret(data.ct);if(ct.length<16) throw new Error('암호 길이 오류');
+ const key=await crypto.subtle.importKey('raw',decodeSecret(secret,32),{name:'AES-GCM'},false,['decrypt']);
+ const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv,tagLength:128},key,ct);
+ return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(plain));
+}
+function connectionState({snapshot,now,startedAt,error=false,readyState=0,demo=false,pages=false}) {
+ if(demo) return 'demo';
+ if(!snapshot) return error || now-startedAt>=CONNECT_TIMEOUT_MS ? 'connect_failed' : 'connecting';
+ if(pages) {
+  if(error || readyState !== 1) return 'reconnecting';
+  return !Number.isFinite(Date.parse(snapshot.generatedAt)) || now-Date.parse(snapshot.generatedAt)>390000 ? 'stale' : 'live';
+ }
+ if(readyState === 2) return 'closed';
+ if(snapshot.orca.ok === false) return 'orca_error';
+ if(error || readyState !== 1) return 'reconnecting';
+ return !Number.isFinite(Date.parse(snapshot.orca.lastPollAt)) || now-Date.parse(snapshot.orca.lastPollAt)>POLL_STALE_MS ? 'stale' : 'live';
+}
+
+</script>
+<script>
+
+const app=document.getElementById('app'), connection=document.getElementById('connection'), band=document.getElementById('band');
+const demo=new URLSearchParams(location.search).has('demo'), startedAt=Date.now();
+const pages=location.hostname.endsWith('.github.io');
+const ghData={repo:'GLEEN103/orca-dashboard-data',branch:'snapshot',path:'snapshot.json'};
+const fragmentToken=pages ? parseTokenFragment(location.hash) : null;
+const fragmentKey=pages ? parseKeyFragment(location.hash) : null;
+if(fragmentToken !== null || fragmentKey !== null) history.replaceState(null,'',location.pathname+location.search);
+let ghToken='', ghKey='', pagesReady=0, pagesMessage='', pagesDelay=10000, pagesRetryAt=0, pagesTimer=null, pagesRequest=null;
+let snapshot=null, events=null, receiveError='', transportError=false, lastSuccessAt=null, activeOnly=true, timelineFilter='important', timelineLimit=30, taskFilter=null, attentionOnly=false, theme='auto';
+const expanded=new Set(), groups=new Map(), bundles=new Set(), changed=new Set(), expandedText=new Set();
+let announcements=[], announceTimer=null;
+const statusLabels={active:'진행 중',waiting_user:'사용자 대기',blocked:'차단',done:'완료',failed:'실패',idle:'대기',dispatched:'진행',ready:'준비',pending:'대기',completed:'완료'};
+const statusIcons={active:'progress',waiting_user:'pause',blocked:'alert',done:'check',failed:'x',idle:'pending',dispatched:'progress',ready:'ready',pending:'pending',completed:'check'};
+const kindLabels={heartbeat:'heartbeat',status:'상태',task_created:'Task 생성',task_completed:'Task 완료',worker_done:'결과 보고',escalation:'문제 보고',question:'질문',decision_gate:'결정',report_progress:'진행 보고',report_event:'보고'};
+const levelRoles={info:'neutral',decision:'progress',warning:'attention',error:'danger'}, levelIcons={info:'pending',decision:'progress',warning:'alert',error:'x'};
+function node(tag,className='',text) {const element=document.createElement(tag); if(className) element.className=className; if(text !== undefined) element.textContent = String(text); return element;}
+function icon(name,pulse=false) {const svg=document.getElementById('tpl-icon').content.firstElementChild.cloneNode(true);svg.querySelector('use').setAttribute('href','#i-'+name);if(pulse) svg.classList.add('pulse');return svg;}
+function keyed(element,key) {element.dataset.key=key;return element;}
+function button(text,key,action,className='') {const el=keyed(node('button',className,text),key);el.type='button';el.addEventListener('click',action);return el;}
+function chip(text,role='neutral',name) {const el=node('span','badge',text);el.dataset.role=role;if(name) el.prepend(icon(name));return el;}
+function badge(status) {return chip(statusLabels[status] || status,statusRoles[status] || 'neutral',statusIcons[status] || 'diamond');}
+function damaged(parent,value) {if(String(value || '').includes('\uFFFD')) {const mark=chip('문자 손상','attention','alert');mark.title='보고가 UTF-8이 아닌 인코딩으로 전송된 것으로 보입니다.';parent.append(mark);}}
+function now() {return demo && snapshot ? Date.parse(snapshot.generatedAt) : Date.now();}
+function fullTime(stamp) {return stamp ? new Date(stamp).toLocaleString('ko-KR',{hour12:false}) : '정보 없음';}
+function time(stamp) {return stamp ? new Date(stamp).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false}) : '—';}
+function duration(stamp,end=now()) {const seconds=Math.max(0,Math.floor((end-Date.parse(stamp))/1000));if(!Number.isFinite(seconds)) return '—';return seconds<60 ? seconds+'초' : seconds<3600 ? Math.floor(seconds/60)+'분' : Math.floor(seconds/3600)+'시간 '+Math.floor(seconds%3600/60)+'분';}
+function elapsed(stamp,end) {const el=node('span','num',duration(stamp,end ? Date.parse(end) : now()));if(!end) el.dataset.elapsed=stamp;return el;}
+function endOf(run) {return ['done','failed'].includes(run.status) ? run.tasks.map(t=>t.completedAt).filter(Boolean).sort().at(-1) || snapshot.generatedAt : null;}
+function segments(options,value,prefix,action,className='') {const wrap=node('div','segments '+className);for(const [id,label] of options) {const el=button(label,prefix+':'+id,()=>action(id));el.setAttribute('aria-pressed',String(value === id));wrap.append(el);}return wrap;}
+function kpi(label,value,role='neutral',action,key) {
+ const el=action ? button('',key,action,'kpi') : node('div','kpi');if(value === 0) el.dataset.zero='';if(value>0 && ['danger','attention'].includes(role)) el.dataset.tone=role;
+ el.append(node('span','kpi-label',label));const count=node('span','kpi-value',value), name=({완료:'check',진행:'progress',준비:'ready',대기:'pending',차단:'alert',실패:'x','진행 중 Run':'progress','실행 중 Worker':'progress','사용자 대기':'pause','주의 필요 Task':'alert'})[label] || 'pending';count.prepend(icon(name));el.append(count);return el;
+}
+function progress(run) {
+ const wrap=node('div','seg-wrap'), c=run.counts;if(!c.total) {wrap.append(node('span','muted','Task 없음'));return wrap;}
+ const bar=node('div','seg');bar.setAttribute('role','progressbar');bar.setAttribute('aria-valuemin','0');bar.setAttribute('aria-valuemax',String(c.total));bar.setAttribute('aria-valuenow',String(c.completed));bar.setAttribute('aria-valuetext',c.total+'개 중 '+c.completed+'개 완료, 실패 '+c.failed+', 진행 '+c.dispatched+', 차단 '+c.blocked);
+ for(const [status,role] of [['completed','success'],['failed','danger'],['dispatched','progress'],['blocked','attention']]) if(c[status]) {const part=node('span','seg-part');part.dataset.role=role;part.style.flexGrow=c[status];bar.append(part);}
+ if(c.pending+c.ready) {const rest=node('span','seg-rest');rest.style.flexGrow=c.pending+c.ready;bar.append(rest);}
+ wrap.append(bar,node('span','fraction num','Task '+c.completed+'/'+c.total));return wrap;
+}
+function expandableText(text,key,className='') {
+ const open=expandedText.has(key), el=button(text,key,()=>{const next=el.getAttribute('aria-expanded') !== 'true';if(next) expandedText.add(key);else expandedText.delete(key);el.setAttribute('aria-expanded',String(next));el.classList.toggle('clamp',!next);},'text-toggle '+(open ? '' : 'clamp ')+className);el.setAttribute('aria-expanded',String(open));return el;
+}
+function updateConnection() {
+ const state=connectionState({snapshot,now:now(),startedAt,error:transportError,readyState:pages ? pagesReady : events?.readyState ?? 0,demo,pages});
+ const labels={connecting:'연결 중',connect_failed:'연결 실패 · 재시도 중',live:'연결됨',stale:'수집 지연',orca_error:'Orca 수집 실패',reconnecting:'재연결 중',closed:'연결 종료',demo:'데모'};
+ if(pages && !demo) {labels.stale='게시 지연(PC·서버 확인)';if(!ghToken) labels[state]='읽기 토큰 필요';else if(!ghKey) labels[state]='복호화 키 필요';}
+ const role=['connect_failed','orca_error','closed'].includes(state) ? 'danger' : ['stale','reconnecting'].includes(state) ? 'attention' : state === 'live' ? 'progress' : 'neutral';
+ if(connection.dataset.state !== state || document.getElementById('connection-label').textContent !== labels[state]) {connection.dataset.state=state;document.getElementById('connection-label').textContent=labels[state];connection.querySelector('.dot').style.background='var(--'+role+'-solid)';}
+ const stamp=pages ? snapshot?.generatedAt : snapshot?.orca.lastPollAt;
+ const age=stamp ? duration(stamp)+(pages ? ' 전 게시' : ' 전 수집') : '';document.getElementById('connection-age').textContent=demo ? '' : age;connection.title=labels[state]+(age ? ' · '+age : '')+(snapshot?.orca.version ? ' · Orca '+snapshot.orca.version : '');
+ const failure='대시보드 서버(127.0.0.1:4545)에 연결하지 못했습니다. 서버 실행 여부를 확인하세요. 자동으로 다시 시도합니다.';
+ let text=receiveError ? '수신한 데이터를 해석하지 못했습니다. 이전 화면을 유지합니다.' : state === 'connect_failed' ? failure : state === 'stale' ? 'Orca 수집이 '+duration(snapshot.orca.lastPollAt)+'째 갱신되지 않았습니다.' : state === 'orca_error' ? 'Orca 수집 실패('+(snapshot.orca.error?.code || '알 수 없는 오류')+'). 마지막 성공 '+fullTime(lastSuccessAt)+' 기준 데이터입니다.' : state === 'reconnecting' ? '서버 연결이 끊겨 재연결 중입니다. 화면은 '+fullTime(snapshot.generatedAt)+' 기준입니다.' : state === 'closed' ? '연결이 종료되었습니다.' : '';
+ if(pages && !demo) text=pagesMessage || (ghToken && !ghKey ? '복호화 키가 없거나 올바르지 않습니다. 키 링크를 다시 입력해 주세요.' : receiveError ? text : state === 'stale' ? labels.stale : ghToken && ['connect_failed','reconnecting'].includes(state) ? 'GitHub 데이터 연결 실패 · 자동 재시도 중' : '');
+ if(demo) text=receiveError;band.hidden=!text;band.dataset.role=receiveError ? 'danger' : role;
+ const bandKey=state+':'+text;if(band.dataset.message !== bandKey) {band.dataset.message=bandKey;band.replaceChildren(node('span','',text));if(state === 'closed') band.append(button('새로고침','reload',()=>location.reload()));}
+ if(!snapshot && !demo && !pages && state === 'connect_failed' && app.dataset.state !== state) {app.dataset.state=state;app.replaceChildren(node('div','panel empty',failure+' 작업 폴더에서 npm start로 서버를 실행해 주세요.'));}
+}
+function renderList() {
+ const active=snapshot.runs.filter(r=>['active','waiting_user','blocked'].includes(r.status)), flags=active.map(r=>runFlags(r,now()));
+ const summary=node('div','kpis summary');summary.append(kpi('진행 중 Run',active.length),kpi('사용자 대기',active.filter(r=>r.status === 'waiting_user').length,'attention'),kpi('주의 필요 Task',flags.reduce((n,f)=>n+f.attention,0),'attention'),kpi('실패 Task',active.reduce((n,r)=>n+r.counts.failed,0),'danger'),kpi('실행 중 Worker',snapshot.runs.reduce((n,r)=>n+runFlags(r,now()).live,0)));
+ const toolbar=node('div','toolbar');toolbar.append(node('h1','','Run 목록'),segments([['active','진행 중 '+active.length],['all','전체 '+snapshot.runs.length]],activeOnly ? 'active' : 'all','runs',id=>{activeOnly=id === 'active';render();}));app.append(summary,toolbar);
+ const runs=activeOnly ? active : snapshot.runs, list=node('div','run-list');
+ for(const run of runs) {
+  const flags=runFlags(run,now()), row=keyed(node('a','run-row'),'run:'+run.id);row.href='#/run/'+encodeURIComponent(run.id);if(changed.has('run:'+run.id)) row.dataset.changed='';
+  const rail=node('span','rail');rail.style.background='var(--'+flags.role+'-solid)';rail.setAttribute('aria-hidden','true');
+  const status=node('div','run-status');status.append(badge(run.status));if(run.status === 'active') status.querySelector('svg').classList.add('pulse');
+  const title=node('div','run-title'), heading=node('h2','',run.objective || '미확인 Run');heading.title=run.objective;title.append(heading,node('div','id',run.id+(run.progress.phase ? ' · '+run.progress.phase : '')));damaged(title,run.objective);damaged(title,run.progress.phase);
+  if(['미확인 Run','Orca 수집 대기 Run'].includes(run.objective)) {heading.classList.add('muted');title.append(chip('Orca 미확인'));}
+  const percent=node('div','run-percent num',run.progress.percent == null ? '—' : run.progress.percent+'%');percent.append(node('small','',run.progress.percent == null ? '정보 없음' : run.progress.source === 'report' ? '보고' : 'Task'));
+  const bar=node('div','run-progress');bar.append(progress(run));const chips=node('div','run-chips');flags.chips.slice(0,3).forEach(c=>chips.append(chip(c.label,c.role,c.code === 'failed' ? 'x' : c.code === 'live' ? 'progress' : 'alert')));if(flags.chips.length>3) chips.append(chip('+'+(flags.chips.length-3)));
+  const meta=node('div','run-meta muted');meta.append(elapsed(run.createdAt,endOf(run)));if(run.progress.reportedAt) meta.append(node('div','','보고 '+duration(run.progress.reportedAt)+' 전'));
+  row.append(rail,status,title,percent,bar,chips,meta);list.append(row);
+ }
+ if(!runs.length) {const empty=node('div','empty',activeOnly && snapshot.runs.length ? '진행 중인 Run이 없습니다.' : '아직 수집된 Run이 없습니다. 코디네이터가 Run을 만들면 5초 안에 나타납니다.');if(activeOnly && snapshot.runs.length) empty.append(button('전체 보기','runs:empty',()=>{activeOnly=false;render();}));list.append(empty);}app.append(list);
+}
+function positionTooltip(tip) {
+ tip.style.transform='';const box=tip.getBoundingClientRect(), shift=Math.max(8-box.left,Math.min(0,document.documentElement.clientWidth-8-box.right));tip.style.transform='translateX('+shift+'px)';
+}
+window.addEventListener('resize',()=>{const tip=document.getElementById('progress-tooltip');if(tip && !tip.hidden) positionTooltip(tip);});
+function tooltip(run) {
+ const wrap=node('span','tooltip-wrap'), id='progress-tooltip', tip=node('span','','보고 '+run.progress.percent+'%는 코디네이터 추정, Task '+run.progress.derivedPercent+'%는 완료 Task 수 기준입니다.');tip.id=id;tip.setAttribute('role','tooltip');tip.hidden=true;
+ const show=()=>{tip.hidden=false;positionTooltip(tip);}, el=button('ⓘ','progress:info',show);el.setAttribute('aria-label','두 진행률의 차이');el.setAttribute('aria-describedby',id);el.addEventListener('focus',show);el.addEventListener('blur',()=>{tip.hidden=true;});el.addEventListener('keydown',e=>{if(e.key === 'Escape') tip.hidden=true;});wrap.append(el,tip);return wrap;
+}
+function renderOverview(run) {
+ const section=node('section','panel overview section');section.setAttribute('aria-labelledby','overview-title');section.append(badge(run.status));const heading=node('h1');heading.append(expandableText(run.objective || '미확인 Run','run-title:'+run.id));heading.id='overview-title';section.append(heading);damaged(section,run.objective);
+ if(['미확인 Run','Orca 수집 대기 Run'].includes(run.objective)) {heading.classList.add('muted');section.append(chip('Orca 미확인'));}
+ const meta=node('div','meta-line muted'), left=node('span','','시작 '+fullTime(run.createdAt)+' · 경과 ');left.append(elapsed(run.createdAt,endOf(run)));meta.append(left,node('span','','상태 출처: '+(run.statusSource === 'report' ? '코디네이터 보고' : 'Task 비율')),node('span','id','코디네이터: '+(run.coordinatorHandle || '—')));section.append(meta);
+ const info=node('div','overview-info'), percent=node('div');percent.append(node('div','muted',run.progress.percent == null ? '진행률 정보 없음' : run.progress.source === 'report' ? '코디네이터 보고' : 'Task 비율'));const value=node('div','big-percent num',run.progress.percent == null ? '—' : run.progress.percent+'%');if(run.progress.source === 'report' && run.progress.derivedPercent != null && Math.abs(run.progress.percent-run.progress.derivedPercent)>=15) value.append(tooltip(run));percent.append(value);
+ const notes=node('div');if(run.progress.phase) {const p=node('p','','단계: '+run.progress.phase);damaged(p,run.progress.phase);notes.append(p);}if(run.progress.note) {notes.append(expandableText(run.progress.note,'run:note'));damaged(notes,run.progress.note);}if(run.progress.reportedAt) notes.append(node('p','muted','보고 '+fullTime(run.progress.reportedAt)));info.append(percent,notes);section.append(info,progress(run));
+ if(run.tasks.length) {const tiles=node('div','kpis');for(const status of ['completed','dispatched','ready','pending','blocked','failed']) {const tile=kpi(statusLabels[status],run.counts[status],statusRoles[status],()=>{taskFilter=taskFilter === status ? null : status;render();},'kpi:'+status);tile.setAttribute('aria-pressed',String(taskFilter === status));tiles.append(tile);}section.append(tiles);}
+ if(run.tasks.length) {const flags=runFlags(run,now()), workers=node('div','worker-summary');workers.append(kpi('실행 중 Worker',flags.live));const attention=kpi('주의 필요 Task',flags.attention,'attention',()=>{attentionOnly=!attentionOnly;render();},'kpi:attention');attention.setAttribute('aria-pressed',String(attentionOnly));workers.append(attention);section.append(workers);}return section;
+}
+
+function workerLabel(task) {
+ const el=node('span','worker-label'), closed=['completed','failed'].includes(task.status), live=task.worker?.liveness;
+ const label=closed || live === 'exited' ? '종료' : live === 'live' ? '실행 중' : live === 'unverifiable' ? '확인 불가' : live || '기록 없음';
+ if(closed || live === 'exited') el.append(icon('square'));else if(live) el.append(icon(live === 'live' ? 'progress' : 'diamond'));el.append(node('span','',label));
+ if(!closed && live === 'unverifiable') el.style.color='var(--attention-fg)';if(!closed && live === 'live') el.style.color='var(--progress-fg)';el.title=task.worker?.provider || '';return el;
+}
+function heartbeat(task) {
+ const stamp=task.worker?.lastHeartbeatAt, late=attentionOf(task,now()).signals.some(s=>s.code === 'stale_heartbeat');
+ const el=node('div','heartbeat'+(late ? ' late' : ''),stamp ? (late ? '응답 지연 · ' : '')+'heartbeat '+duration(stamp)+' 전' : 'heartbeat 없음');
+ if(late) el.prepend(icon('alert'));el.dataset.heartbeat=task.id;return el;
+}
+function axis(run,task) {
+ const td=node('td','axis-cell');td.setAttribute('aria-hidden','true');
+ const t0=Date.parse(run.createdAt), end=endOf(run), t1=end ? Date.parse(end) : Math.max(now(),...run.tasks.map(t=>Date.parse(t.completedAt)||0)), span=Math.max(1,t1-t0), offset=stamp=>Math.max(0,Math.min(100,100*(Date.parse(stamp)-t0)/span));
+ const track=node('div','axis'), bar=node('span','axis-bar');bar.style.left=offset(task.createdAt)+'%';bar.style.width=Math.max(0,offset(task.completedAt || new Date(now()).toISOString())-offset(task.createdAt))+'%';bar.style.maxWidth=(100-offset(task.createdAt))+'%';bar.style.background='var(--'+(statusRoles[task.status] || 'neutral')+'-solid)';
+ if(['pending','ready'].includes(task.status)) bar.style.opacity='.5';
+ bar.title='생성 '+time(task.createdAt)+' → '+(task.completedAt ? '완료 '+time(task.completedAt) : '현재 '+time(new Date(now())))+' ('+duration(task.createdAt,task.completedAt ? Date.parse(task.completedAt) : now())+')';track.append(bar);
+ if(task.status === 'dispatched') {const point=node('span','axis-point');point.style.left='calc('+offset(new Date(now()).toISOString())+'% - 4px)';track.append(point);}
+ run.events.filter(e=>e.taskId === task.id && (['escalation','question','decision_gate'].includes(e.kind) || ['warning','error'].includes(e.level))).slice(0,5).forEach(e=>{const mark=node('span','axis-mark');mark.style.left='calc('+offset(e.ts)+'% - 2px)';if(e.level === 'error') mark.style.background='var(--danger-solid)';mark.title=e.summary;track.append(mark);});td.append(track);return td;
+}
+function taskDetail(run,task) {
+ const td=node('td','task-detail');td.colSpan=6;td.append(node('p','',task.title));
+ if(task.result) td.append(node('p','',(task.result.outcome === 'succeeded' ? '성공' : task.result.outcome === 'failed' ? '실패' : task.result.outcome)+' · '+(task.result.subject || '—')),node('p','',task.result.body || '—'));else td.append(node('p','muted','아직 결과 보고가 없습니다.'));
+ td.append(node('p','muted','선행 Task:'));if(!task.deps.length) td.append(node('p','muted','없음'));for(const id of task.deps) td.append(node('p','',displayTitle(run.tasks.find(t=>t.id === id)?.title || id).text+' · '+id));
+ const w=task.worker;if(w) td.append(node('p','muted','Worker: '+[w.provider,w.workerState,w.activity,w.detail].filter(Boolean).join(' · ')+' · 터미널 '+(w.terminalState || '—')),node('p','muted','최근 heartbeat: '+fullTime(w.lastHeartbeatAt)+' · '+(w.lastPhase || '—')));
+ const descriptions={failure:'Worker가 실패 신호를 남겼습니다. 재시도나 재계획이 필요한지 확인하세요.',interruption:'Worker 실행이 중단되었습니다.',unverifiable:'Orca가 Worker 프로세스 상태를 확인할 수 없습니다. 종료됐거나 터미널이 닫혔을 수 있습니다.',stale:'Orca가 Worker 응답이 늦다고 표시했습니다.',root_completion:'Worker가 완료 신호를 보냈고 Task 정리를 기다립니다.',stale_heartbeat:w?.lastHeartbeatAt ? '마지막 heartbeat가 '+duration(w.lastHeartbeatAt)+' 전입니다.' : 'Task 생성 후 10분이 지났으나 heartbeat 기록이 없습니다.'};
+ attentionOf(task,now()).signals.forEach(s=>{td.append(node('p','',s.label+': '+(descriptions[s.code] || '기타 Worker 신호입니다.')),node('p','id','원문 코드: '+s.code));});
+ if(['completed','failed'].includes(task.status) && w?.attention.length) td.append(node('p','id','기록된 Worker 신호: '+w.attention.join(', ')));
+ td.append(node('p','id','Dispatch: '+(task.dispatchId || '—')));return td;
+}
+function renderTasks(run) {
+ const section=node('section','section');section.setAttribute('aria-labelledby','tasks-title');
+ const heading=node('div','toolbar'), h=node('h2','','Task · '+run.tasks.length);h.id='tasks-title';heading.append(h,segments([['all','모든 Task'],['attention','주의 필요만']],attentionOnly ? 'attention' : 'all','tasks',value=>{attentionOnly=value === 'attention';render();}));section.append(heading);
+ if(taskFilter) section.append(button('필터: '+statusLabels[taskFilter]+' ×','filter:clear',()=>{taskFilter=null;render();}));
+ if(!run.tasks.length) {section.append(node('div','panel empty','등록된 Task가 없습니다. 코디네이터가 Task를 만들면 표시됩니다.'));return section;}
+ const tasks=run.tasks.filter(t=>(!taskFilter || t.status === taskFilter) && (!attentionOnly || ['attention','danger'].includes(attentionOf(t,now()).severity)));
+ if(!tasks.length) {const empty=node('div','panel empty','조건에 맞는 Task가 없습니다.');empty.append(button('필터 해제','tasks:clear',()=>{taskFilter=null;attentionOnly=false;render();}));section.append(empty);return section;}
+ const wrap=node('div','table-wrap'), table=node('table'), head=node('thead'), hr=node('tr');
+ for(const [i,text] of ['상태','Task','Worker','진행','시간 축','경과'].entries()) {const th=node('th',i === 4 ? 'axis-cell' : '',text);th.scope='col';if(i === 4) {th.setAttribute('aria-hidden','true');th.title='Task 생성→완료';const range=node('span','axis-label');range.append(node('span','',time(run.createdAt)),node('span','',time(endOf(run) || new Date(now()))));th.append(range);}hr.append(th);}head.append(hr);table.append(head);
+ const hasOpen=run.tasks.some(t=>t.status !== 'completed');
+ for(const group of groupTasks(tasks)) {
+  const key=run.id+'/'+group.status, open=groups.has(key) ? groups.get(key) : !(group.status === 'completed' && hasOpen), body=node('tbody'), gr=node('tr','group'), th=node('th');th.colSpan=6;th.scope='rowgroup';
+  const toggle=button((open ? '▾ ' : '▸ ')+statusLabels[group.status]+' '+group.tasks.length,'group:'+key,()=>{groups.set(key,!open);render();});toggle.setAttribute('aria-expanded',String(open));th.append(toggle);gr.append(th);body.append(gr);
+  for(const task of group.tasks) {
+   const taskKey=run.id+'/'+task.id, row=node('tr','task-row');row.id='row-'+task.id;row.hidden=!open;if(changed.has('task:'+task.id)) row.dataset.changed='';
+   const status=node('td','status-cell');status.append(badge(task.status));const title=node('td','title-cell'), info=displayTitle(task.title), detailId='detail-'+task.id;
+   const toggle=button('','task:'+task.id,()=>{if(expanded.has(taskKey)) expanded.delete(taskKey);else expanded.add(taskKey);detailRow.hidden=!open || !expanded.has(taskKey);toggle.setAttribute('aria-expanded',String(expanded.has(taskKey)));arrow.textContent=expanded.has(taskKey) ? '▾' : '▸';},'task-toggle');
+   toggle.title=task.title;toggle.setAttribute('aria-expanded',String(expanded.has(taskKey)));toggle.setAttribute('aria-controls',detailId);const arrow=node('span','',expanded.has(taskKey) ? '▾' : '▸');toggle.append(arrow);
+   if(info.role) {toggle.classList.add('has-role');const role=chip(info.role,'neutral');role.classList.add('role-chip');toggle.append(role);}
+   toggle.append(node('span','task-title ellipsis',info.text));title.append(toggle);damaged(title,task.title);
+   const sub=node('div','task-sub muted');if(task.result?.subject) sub.append(node('span','',(task.result.outcome === 'succeeded' ? '성공 · ' : '실패 · ')+task.result.subject));if(task.deps.length) sub.append(chip('선행 '+task.deps.length));
+   const signals=attentionOf(task,now()).signals;if(signals.length) {const s=signals[0];sub.append(chip(s.label,['danger','attention'].includes(s.severity) ? s.severity : 'neutral',s.severity === 'info' ? 'pending' : 'alert'));if(signals.length>1) sub.append(chip('+'+(signals.length-1)));}title.append(sub);
+   const work=node('td','worker-cell');work.append(workerLabel(task));const current=node('td','progress-cell'), p=task.progress;
+   if(['completed','failed'].includes(task.status)) current.append(node('span','muted','—'));else {
+    if(p) {if(typeof p.percent === 'number') {const mini=node('span','mini'), fill=node('span');fill.style.width=Math.max(0,Math.min(100,p.percent))+'%';mini.append(fill);current.append(mini,node('span','num',p.phase?.match(/\d+\s*\/\s*\d+/)?.[0] || p.percent+'%'));}else current.append(node('div','ellipsis',p.phase || '—'));current.title=p.phase || '';damaged(current,p.phase);}
+    if(task.status === 'dispatched') current.append(heartbeat(task));
+   }
+   const timing=node('td','elapsed-cell');timing.append(elapsed(task.createdAt,task.completedAt));row.append(status,title,work,current,axis(run,task),timing);
+   const detailRow=node('tr','detail-row');detailRow.id=detailId;detailRow.hidden=!open || !expanded.has(taskKey);detailRow.append(taskDetail(run,task));
+   row.addEventListener('click',event=>{if(!event.target.closest('button,a')) toggle.click();});body.append(row,detailRow);
+  }table.append(body);
+ }wrap.append(table);section.append(wrap);return section;
+}
+function jumpTask(run,id) {
+ const task=run.tasks.find(t=>t.id === id);if(!task) return;taskFilter=null;attentionOnly=false;groups.set(run.id+'/'+task.status,true);expanded.add(run.id+'/'+id);render();
+ const row=document.getElementById('row-'+id);row.dataset.changed='';row.scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
+ [...document.querySelectorAll('[data-key]')].find(el=>el.dataset.key === 'task:'+id)?.focus({preventScroll:true});setTimeout(()=>row.removeAttribute('data-changed'),1500);
+}
+function renderTimeline(run) {
+ const section=node('section','section timeline-section');section.setAttribute('aria-labelledby','timeline-title');const heading=node('div','toolbar'), h=node('h2','','타임라인');h.id='timeline-title';heading.append(h);section.append(heading);
+ const options=[['important','중요'],['all','전체'],['orca','Orca'],['report','보고'],['warnings','경고·오류']], change=value=>{timelineFilter=value;timelineLimit=30;render();};section.append(segments(options,timelineFilter,'timeline',change,'timeline-buttons'));
+ const select=keyed(node('select','timeline-select'),'timeline:select');select.setAttribute('aria-label','타임라인 필터');for(const [value,label] of options) {const option=node('option','',label);option.value=value;select.append(option);}select.value=timelineFilter;select.addEventListener('change',()=>change(select.value));section.append(select);
+ const panel=node('div','panel'), list=node('ol','timeline'), view=timelineView(run.events,timelineFilter);let previousDay='';
+ for(const event of view.slice(0,timelineLimit)) {
+  const day=new Date(event.ts).toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'});if(day !== previousDay) {const divider=node('li','day',day);divider.setAttribute('role','presentation');list.append(divider);previousDay=day;}
+  const item=node('li'), timestamp=node('time','time',time(event.ts));timestamp.dateTime=event.ts;timestamp.title=fullTime(event.ts);const graphic=icon(levelIcons[event.level] || 'pending');graphic.style.color='var(--'+(levelRoles[event.level] || 'neutral')+'-fg)';const content=node('div');
+  if(event.kind === 'heartbeat' && event.count>1) {
+   const bundleKey=event.ts+':'+event.count, open=bundles.has(bundleKey), toggle=button('⋯ heartbeat '+event.count+'건 · 최근 phase '+event.summary,'bundle:'+bundleKey,()=>{if(open) bundles.delete(bundleKey);else bundles.add(bundleKey);render();},'text-toggle muted');
+   toggle.setAttribute('aria-expanded',String(open));content.append(toggle);if(open) {const children=node('div','heartbeat-items');event.events.forEach(e=>children.append(node('p','',fullTime(e.ts)+' · '+e.summary)));content.append(children);}
+  }else {
+   const meta=node('div','event-meta');meta.append(node('span','',kindLabels[event.kind] || event.kind),chip(event.source === 'orca' ? 'Orca' : '보고'));
+   if(event.taskId) {const task=run.tasks.find(t=>t.id === event.taskId), label=displayTitle(task?.title || event.taskId).text.slice(0,20);meta.append(button(label,'event-task:'+event.ts+':'+event.taskId,()=>jumpTask(run,event.taskId),'text-toggle'));}
+   content.append(meta,expandableText(event.summary,'event:'+event.ts+':'+event.kind,'event-summary'));damaged(content,event.summary);
+  }item.append(timestamp,graphic,content);list.append(item);
+ }
+ if(!view.length) {panel.append(node('p','muted',run.events.length ? '이 필터에 해당하는 이벤트가 없습니다.' : '기록된 이벤트가 없습니다.'));if(timelineFilter === 'important' && run.events.length) panel.append(button('전체 보기','timeline:empty',()=>change('all')));}
+ panel.append(list);if(view.length>timelineLimit) panel.append(button('더 보기 · '+(view.length-timelineLimit)+'건 남음','timeline:more',()=>{timelineLimit+=30;render();}));section.append(panel);return section;
+}
+function renderDetail(runId) {
+ const back=keyed(node('a','','← Run 목록'),'back');back.href='#/';app.append(back,node('span','id',' / '+runId));const run=snapshot.runs.find(r=>r.id === runId);
+ if(!run) {const empty=node('div','panel empty section','이 Run은 현재 수집 목록에 없습니다.'), link=node('a','','Run 목록으로');link.href='#/';empty.append(link);app.append(empty);return;}
+ app.append(renderOverview(run));const layout=node('div','detail-layout');layout.append(renderTasks(run),renderTimeline(run));app.append(layout);
+}
+// ponytail: snapshot마다 전체 렌더를 유지한다. 행 수가 커지면 부분 갱신으로 바꾼다.
+function render(event) {
+ const navigation=event?.type === 'hashchange', y=navigation ? 0 : window.scrollY, timelineY=navigation ? 0 : document.querySelector('.timeline-section')?.scrollTop || 0, focus=navigation ? null : document.activeElement?.dataset.key;
+ if(navigation) {taskFilter=null;attentionOnly=false;timelineFilter='important';timelineLimit=30;changed.clear();}
+ if(snapshot) {app.replaceChildren();const match=location.hash.match(/^#\/run\/([^/]+)$/);if(match) {try {renderDetail(decodeURIComponent(match[1]));}catch {app.append(node('div','panel empty','잘못된 Run 주소입니다.'));}}else renderList();}
+ const timeline=document.querySelector('.timeline-section');if(timeline) timeline.scrollTop=timelineY;
+ if(focus) [...document.querySelectorAll('[data-key]')].find(el=>el.dataset.key === focus)?.focus({preventScroll:true});window.scrollTo(0,y);
+ if(changed.size) setTimeout(()=>{document.querySelectorAll('[data-changed]').forEach(el=>el.removeAttribute('data-changed'));changed.clear();},1500);
+}
+function accept(data) {
+ if(!data || !data.orca || !Array.isArray(data.runs)) throw new Error('snapshot 형식 오류');changed.clear();
+ if(snapshot) for(const run of data.runs) {
+  const old=snapshot.runs.find(r=>r.id === run.id);if(!old) continue;
+  if(old.status !== run.status || JSON.stringify(old.counts) !== JSON.stringify(run.counts)) changed.add('run:'+run.id);
+  if(old.status !== run.status) announcements.push(run.objective+' Run이 '+(statusLabels[run.status] || run.status)+'(으)로 바뀌었습니다');
+  if(run.counts.failed>old.counts.failed) announcements.push('실패 Task '+(run.counts.failed-old.counts.failed)+'개 추가, 총 '+run.counts.failed+'개');
+  for(const task of run.tasks) {const prev=old.tasks.find(t=>t.id === task.id);if(prev && JSON.stringify([prev.status,prev.progress?.percent,prev.progress?.phase,prev.worker?.liveness]) !== JSON.stringify([task.status,task.progress?.percent,task.progress?.phase,task.worker?.liveness])) changed.add('task:'+task.id);}
+ }
+ snapshot=data;receiveError='';transportError=false;if(data.orca.ok) lastSuccessAt=data.orca.lastPollAt || data.generatedAt;render();updateConnection();
+ if(announcements.length && !announceTimer) announceTimer=setTimeout(()=>{document.getElementById('live-summary').textContent=announcements.join(', ')+'.';announcements=[];announceTimer=null;},10000);
+}
+function stopPages() {
+ clearTimeout(pagesTimer);pagesTimer=null;pagesRequest?.abort();pagesRequest=null;
+}
+function saveToken(value) {
+ stopPages();ghToken=value;pagesReady=0;pagesDelay=10000;pagesRetryAt=0;pagesMessage='';receiveError='';transportError=false;
+ try {if(value) localStorage.setItem('orca-gh-token',value);else localStorage.removeItem('orca-gh-token');}catch {}
+}
+function saveKey(value) {
+ stopPages();ghKey='';snapshot=null;pagesReady=0;
+ try {decodeSecret(value,32);ghKey=value;}catch {}
+ try {if(ghKey) localStorage.setItem('orca-gh-key',ghKey);else localStorage.removeItem('orca-gh-key');}catch {}
+}
+function keyNotice() {app.replaceChildren(node('div','panel empty','복호화 키가 없거나 올바르지 않습니다. 키 링크를 다시 입력해 주세요.'));}
+function tokenForm(message='') {
+ const form=node('form','panel'), label=node('label','','읽기 토큰'), input=node('input'), notice=node('p','muted',message), submit=node('button','','연결');
+ input.id='read-token';input.type='password';input.autocomplete='off';input.required=true;label.htmlFor=input.id;submit.type='submit';notice.setAttribute('role','status');
+ form.append(label,input,submit,notice);form.addEventListener('submit',event=>{event.preventDefault();const value=input.value.trim();if(!value) return;input.value='';saveToken(value);app.replaceChildren(node('div','panel empty','GitHub에서 첫 데이터를 받는 중입니다.'));pollPages();updateConnection();});app.replaceChildren(form);
+}
+function schedulePages() {
+ clearTimeout(pagesTimer);pagesTimer=null;
+ if(ghToken && !document.hidden) pagesTimer=setTimeout(pollPages,Math.max(pagesDelay,pagesRetryAt-Date.now()));
+}
+async function pollPages() {
+ clearTimeout(pagesTimer);pagesTimer=null;
+ if(!ghToken || document.hidden || pagesRequest) return;
+ if(!ghKey) {keyNotice();return;}
+ if(Date.now()<pagesRetryAt) {schedulePages();return;}
+ const request=new AbortController();pagesRequest=request;
+ const timeout=setTimeout(()=>request.abort(),15000);
+ try {
+  const response=await fetch('https://api.github.com/repos/'+ghData.repo+'/contents/'+ghData.path+'?ref='+ghData.branch,{cache:'no-store',signal:request.signal,headers:{Authorization:'Bearer '+ghToken,Accept:'application/vnd.github.raw+json','X-GitHub-Api-Version':'2022-11-28'}});
+  if(pagesRequest !== request) return;
+  if(!response.ok) {
+   pagesReady=0;transportError=true;
+   if(response.status === 401) {saveToken('');snapshot=null;pagesMessage='토큰이 만료되었거나 올바르지 않습니다';tokenForm(pagesMessage);}
+   else if(response.status === 404) pagesMessage='데이터 없음 또는 토큰 권한 부족';
+   else if([403,429].includes(response.status)) {pagesDelay=60000;pagesRetryAt=Date.now()+60000;pagesMessage='GitHub 요청 한도';}
+   else pagesMessage='GitHub 데이터 연결 실패 · 자동 재시도 중';
+  } else {
+   let data;
+   try {data=await decryptSnapshot(await response.json(),ghKey);}catch {if(pagesRequest === request) {pagesReady=0;transportError=true;pagesMessage='복호화 실패. 키 링크를 다시 입력해 주세요.';}return;}
+   if(pagesRequest !== request) return;
+   pagesReady=1;pagesDelay=10000;pagesRetryAt=0;pagesMessage='';
+   try {accept(data);}catch {pagesReady=0;receiveError='수신 데이터 오류';transportError=true;}
+  }
+ }catch {if(pagesRequest === request) {pagesReady=0;transportError=true;pagesMessage='GitHub 데이터 연결 실패 · 자동 재시도 중';}}
+ finally {
+  clearTimeout(timeout);
+  if(pagesRequest === request) {pagesRequest=null;schedulePages();}
+  updateConnection();
+ }
+}
+function startPages() {
+ try {ghToken=localStorage.getItem('orca-gh-token') || '';}catch {}
+ let savedKey='';try {savedKey=localStorage.getItem('orca-gh-key') || '';}catch {}saveKey(fragmentKey ?? savedKey);
+ if(fragmentToken !== null) saveToken(fragmentToken);
+ const clear=button('토큰 지우기','clear-token',()=>{saveToken('');snapshot=null;tokenForm();updateConnection();});document.getElementById('theme').before(clear);
+ document.addEventListener('visibilitychange',()=>{clearTimeout(pagesTimer);pagesTimer=null;if(!document.hidden) pollPages();});
+ if(ghToken) {app.replaceChildren(node('div','panel empty','GitHub에서 첫 데이터를 받는 중입니다.'));pollPages();}else tokenForm();
+}
+function applyTheme() {
+ if(theme === 'auto') delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=theme;
+ const label='화면 테마: '+({auto:'시스템',light:'라이트',dark:'다크'}[theme]), el=document.getElementById('theme');el.setAttribute('aria-label',label);el.title=label;el.textContent={auto:'◐',light:'☀',dark:'☾'}[theme];
+}
+try {const saved=localStorage.getItem('orca-theme');if(['auto','light','dark'].includes(saved)) theme=saved;}catch {}applyTheme();
+document.getElementById('theme').addEventListener('click',()=>{theme={auto:'light',light:'dark',dark:'auto'}[theme];applyTheme();try {localStorage.setItem('orca-theme',theme);}catch {}});
+window.addEventListener('hashchange', event=>{
+ const token=pages && !demo ? parseTokenFragment(location.hash) : null, key=pages && !demo ? parseKeyFragment(location.hash) : null;
+ if(token !== null || key !== null) {history.replaceState(null,'',location.pathname+location.search);if(key !== null) saveKey(key);if(token !== null) saveToken(token);if(ghToken) pollPages();else tokenForm();updateConnection();return;}
+ render(event);
+});
+setTimeout(updateConnection, Math.max(0,CONNECT_TIMEOUT_MS-(Date.now()-startedAt)));
+setInterval(() => {
+ document.querySelectorAll('[data-elapsed]').forEach(element => { element.textContent = duration(element.dataset.elapsed); });
+ document.querySelectorAll('[data-heartbeat]').forEach(element=>{const task=snapshot?.runs.flatMap(r=>r.tasks).find(t=>t.id === element.dataset.heartbeat);if(task) element.replaceWith(heartbeat(task));});updateConnection();
+}, 1000);
+if (demo) {
+ fetch('./demo-snapshot.json').then(response=>{if(!response.ok) throw new Error('데모 HTTP '+response.status);return response.json();}).then(accept).catch(()=>{receiveError='데모를 불러오지 못했습니다';updateConnection();app.replaceChildren(node('div','panel empty','데모 데이터를 불러오지 못했습니다. demo-snapshot.json 접근을 확인해 주세요.'));});
+} else if(pages) {
+ startPages();
+} else {
+ events = new EventSource('/events');
+ events.addEventListener('open',()=>{transportError=false;updateConnection();});
+ events.addEventListener('error',()=>{transportError=true;updateConnection();});
+ events.addEventListener('snapshot',event=>{try {accept(JSON.parse(event.data));}catch {receiveError='수신 데이터 오류';updateConnection();}});
+}
+updateConnection();
+
+</script>
+</body>
+</html>
