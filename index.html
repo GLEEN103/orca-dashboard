@@ -217,10 +217,16 @@ function decodeSecret(value,length) {
  if(length && bytes.length !== length) throw new Error('암호 길이 오류');return bytes;
 }
 async function decryptSnapshot(data,secret) {
- if(!secret || !data || data.v !== 1 || Object.keys(data).sort().join(',') !== 'ct,iv,v') throw new Error('암호 형식 오류');
+ if(!secret || !data || ![1,2].includes(data.v) || Object.keys(data).sort().join(',') !== 'ct,iv,v') throw new Error('암호 형식 오류');
  const iv=decodeSecret(data.iv,12), ct=decodeSecret(data.ct);if(ct.length<16) throw new Error('암호 길이 오류');
  const key=await crypto.subtle.importKey('raw',decodeSecret(secret,32),{name:'AES-GCM'},false,['decrypt']);
- const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv,tagLength:128},key,ct);
+ let plain=await crypto.subtle.decrypt({name:'AES-GCM',iv,tagLength:128},key,ct);
+ if(data.v === 2) {
+  if(typeof DecompressionStream !== 'function') throw Object.assign(new Error('압축 해제 미지원'),{code:'no_gzip'});
+  const reader=new Blob([plain]).stream().pipeThrough(new DecompressionStream('gzip')).getReader(),chunks=[];let size=0;
+  for(;;) {const {done,value}=await reader.read();if(done) break;size+=value.byteLength;if(size>1048576) {await reader.cancel();throw new Error('해제 상한 초과');}chunks.push(value);}
+  plain=new Uint8Array(size);let offset=0;for(const chunk of chunks) {plain.set(chunk,offset);offset+=chunk.byteLength;}
+ }
  return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(plain));
 }
 function connectionState({snapshot,now,startedAt,error=false,readyState=0,demo=false,pages=false}) {
@@ -487,7 +493,7 @@ async function pollPages() {
    else pagesMessage='GitHub 데이터 연결 실패 · 자동 재시도 중';
   } else {
    let data;
-   try {data=await decryptSnapshot(await response.json(),ghKey);}catch {if(pagesRequest === request) {pagesReady=0;transportError=true;pagesMessage='복호화 실패. 키 링크를 다시 입력해 주세요.';}return;}
+   try {data=await decryptSnapshot(await response.json(),ghKey);}catch(err) {if(pagesRequest === request) {pagesReady=0;transportError=true;pagesMessage=err.code === 'no_gzip' ? '이 브라우저는 압축 해제를 지원하지 않습니다(iOS·Safari 16.4+, Chrome 80+, Firefox 113+)' : '복호화 실패. 키 링크를 다시 입력해 주세요.';}return;}
    if(pagesRequest !== request) return;
    pagesReady=1;pagesDelay=10000;pagesRetryAt=0;pagesMessage='';
    try {accept(data);}catch {pagesReady=0;receiveError='수신 데이터 오류';transportError=true;}
